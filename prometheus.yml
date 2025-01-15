@@ -1,0 +1,30 @@
+global:
+  # scrape_interval: 1m
+  evaluation_interval: 1m
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'mongodb'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['mongodb_exporter:9216']
+    metrics_path: /metrics
+
+  - job_name: 'node'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'traefik'
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['traefik:8082']
+
+  - job_name: 'grainjs'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['192.168.64.1:3102', '192.168.64.1:3001']

@@ -1,0 +1,78 @@
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    user: root  # Добавляем права root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command: >
+      --config.file=/etc/prometheus/prometheus.yml
+      --web.enable-admin-api
+    ports:
+      - '9090:9090'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3000:3000'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    ports:
+      - "9100:9100"
+    restart: always
+
+  mongodb_exporter:
+    image: percona/mongodb_exporter:0.43
+    command:
+      - '--log.level=fatal'
+      - '--mongodb.direct-connect'
+      - '--mongodb.global-conn-pool'
+      # - '--collect-all'
+      - '--metrics.overridedescendingindex'
+      - '--mongodb.uri=mongodb://mongo1:27017/?authSource=admin&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000&socketTimeoutMS=30000'
+      - '--collector.diagnosticdata'
+      - '--collector.replicasetstatus'
+      - '--collector.dbstatsfreestorage'
+      - '--collector.topmetrics'
+      - '--collector.currentopmetrics'
+      - '--collector.indexstats'
+      - '--collector.collstats'
+      - '--collector.dbstats'
+      - '--collector.profile'
+      - '--collector.shards'
+      - '--collector.dbstats'
+      - '--collector.pbm'
+      - '--collector.fcv'
+      - '--compatible-mode'
+      - '--collector.profile'
+      # - '--collector.fcv'
+    environment:
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+    ports:
+      - '9216:9216'
+
+volumes:
+  mongo-data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: grainjs_network
+    external: true
