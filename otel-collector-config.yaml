@@ -7,10 +7,11 @@ receivers:
         endpoint: 0.0.0.0:4317 # Слушаем OTLP/gRPC на порту 4317
 
 exporters:
-  jaeger:
-    endpoint: jaeger:14250 # Отправляем трейсы в Jaeger
+  # Заменяем устаревший jaeger exporter на otlp
+  otlp/jaeger: # Даем имя экспортеру, чтобы отличить от других OTLP (если будут)
+    endpoint: jaeger:4317 # Используем OTLP gRPC порт Jaeger (порт 4317 по умолчанию для OTLP gRPC в Jaeger)
     tls:
-      insecure: true
+      insecure: true # Отключаем TLS, так как Jaeger работает внутри Docker сети
   prometheus:
     endpoint: 0.0.0.0:8889 # Endpoint для скрейпинга Prometheus
     namespace: grainjs_otel
@@ -30,7 +31,8 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [jaeger] # Отправляем трейсы в Jaeger
+      # Указываем использовать otlp экспортер, настроенный для Jaeger
+      exporters: [otlp/jaeger]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]

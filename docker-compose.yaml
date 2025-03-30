@@ -80,8 +80,8 @@ services:
       - "9216:9216"
     networks:
       - grainjs_network
-    depends_on: # Добавим зависимость от mongo1, если он определен в другом месте или это плейсхолдер
-      - mongo1 # Замените на имя вашего сервиса MongoDB, если оно другое
+    # depends_on: # Добавим зависимость от mongo1, если он определен в другом месте или это плейсхолдер
+      # - mongo1 # Замените на имя вашего сервиса MongoDB, если оно другое
 
   jaeger:
     image: jaegertracing/all-in-one:latest
