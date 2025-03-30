@@ -1,0 +1,41 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318 # Слушаем OTLP/HTTP на порту 4318
+      grpc:
+        endpoint: 0.0.0.0:4317 # Слушаем OTLP/gRPC на порту 4317
+
+exporters:
+  jaeger:
+    endpoint: jaeger:14250 # Отправляем трейсы в Jaeger
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889 # Endpoint для скрейпинга Prometheus
+    namespace: grainjs_otel
+  # Добавьте другие экспортеры при необходимости (например, logging для отладки)
+  # logging:
+  #   loglevel: debug
+
+processors:
+  batch: {} # Батчинг данных перед экспортом
+  memory_limiter: # Предотвращение OOM
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [jaeger] # Отправляем трейсы в Jaeger
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus] # Отправляем метрики в Prometheus
+    # logs:
+    #   receivers: [otlp]
+    #   processors: [memory_limiter, batch]
+    #   exporters: [logging] # Пример экспорта логов в консоль коллектора

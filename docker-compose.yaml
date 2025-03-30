@@ -1,3 +1,4 @@
+version: "3.9"
 
 services:
   prometheus:
@@ -10,16 +11,25 @@ services:
       --config.file=/etc/prometheus/prometheus.yml
       --web.enable-admin-api
     ports:
-      - '9090:9090'
+      - "9090:9090"
+    depends_on:
+      - jaeger  # Ensure Jaeger is started before Prometheus can collect from it
+      - otel-collector # Добавим зависимость от коллектора для сбора метрик
+    networks:
+      - grainjs_network
 
   grafana:
     image: grafana/grafana:latest
     ports:
-      - '3000:3000'
+      - "3000:3000"
+    volumes: # Добавим volume для сохранения конфигурации Grafana
+      - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - prometheus
+    networks:
+      - grainjs_network
 
   node-exporter:
     image: prom/node-exporter
@@ -29,43 +39,79 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
     ports:
       - "9100:9100"
     restart: always
+    networks:
+      - grainjs_network
 
   mongodb_exporter:
     image: percona/mongodb_exporter:0.43
     command:
-      - '--log.level=fatal'
-      - '--mongodb.direct-connect'
-      - '--mongodb.global-conn-pool'
+      - "--log.level=fatal"
+      - "--mongodb.direct-connect"
+      - "--mongodb.global-conn-pool"
       # - '--collect-all'
-      - '--metrics.overridedescendingindex'
-      - '--mongodb.uri=mongodb://mongo1:27017/?authSource=admin&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000&socketTimeoutMS=30000'
-      - '--collector.diagnosticdata'
-      - '--collector.replicasetstatus'
-      - '--collector.dbstatsfreestorage'
-      - '--collector.topmetrics'
-      - '--collector.currentopmetrics'
-      - '--collector.indexstats'
-      - '--collector.collstats'
-      - '--collector.dbstats'
-      - '--collector.profile'
-      - '--collector.shards'
-      - '--collector.dbstats'
-      - '--collector.pbm'
-      - '--collector.fcv'
-      - '--compatible-mode'
-      - '--collector.profile'
+      - "--metrics.overridedescendingindex"
+      - "--mongodb.uri=mongodb://mongo1:27017/?authSource=admin&connectTimeoutMS=30000&serverSelectionTimeoutMS=30000&socketTimeoutMS=30000"
+      - "--collector.diagnosticdata"
+      - "--collector.replicasetstatus"
+      - "--collector.dbstatsfreestorage"
+      - "--collector.topmetrics"
+      - "--collector.currentopmetrics"
+      - "--collector.indexstats"
+      - "--collector.collstats"
+      - "--collector.dbstats"
+      - "--collector.profile"
+      - "--collector.shards"
+      - "--collector.dbstats"
+      - "--collector.pbm"
+      - "--collector.fcv"
+      - "--compatible-mode"
+      - "--collector.profile"
       # - '--collector.fcv'
     environment:
       - MONGODB_USER=admin
       - MONGODB_PASSWORD=admin
     ports:
-      - '9216:9216'
+      - "9216:9216"
+    networks:
+      - grainjs_network
+    depends_on: # Добавим зависимость от mongo1, если он определен в другом месте или это плейсхолдер
+      - mongo1 # Замените на имя вашего сервиса MongoDB, если оно другое
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger gRPC agent port (для OTLP gRPC от коллектора)
+      - "14250:14250"  # Jaeger HTTP agent port (для OTLP HTTP от коллектора)
+      - "9411:9411"    # Zipkin endpoint (опционально)
+      - "6831:6831/udp" # Jaeger agent UDP Thrift port (для старых агентов/SDK)
+      - "6832:6832/udp" # Jaeger agent UDP Thrift compact port
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+      - COLLECTOR_OTLP_ENABLED=true # Явно включаем OTLP ресивер в Jaeger (хотя часто включен по умолчанию)
+    networks:
+      - grainjs_network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest # Используем contrib для большего числа компонентов
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8889:8889" # Prometheus exporter endpoint
+    depends_on:
+      - jaeger
+    networks:
+      - grainjs_network
 
 volumes:
   mongo-data:
@@ -73,6 +119,5 @@ volumes:
   grafana_data:
 
 networks:
-  default:
-    name: grainjs_network
+  grainjs_network:
     external: true
