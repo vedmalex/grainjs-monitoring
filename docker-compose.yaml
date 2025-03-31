@@ -12,9 +12,6 @@ services:
       --web.enable-admin-api
     ports:
       - "9090:9090"
-    depends_on:
-      - jaeger  # Ensure Jaeger is started before Prometheus can collect from it
-      - otel-collector # Добавим зависимость от коллектора для сбора метрик
     networks:
       - grainjs_network
 
@@ -22,12 +19,28 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    volumes: # Добавим volume для сохранения конфигурации Grafana
+    volumes:
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
+      - tempo
       - prometheus
+    networks:
+      - grainjs_network
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    user: root
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo.yaml
+      - tempo_data:/tmp/tempo
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "3200:3200" # Tempo HTTP/Query frontend
     networks:
       - grainjs_network
 
@@ -80,43 +93,11 @@ services:
       - "9216:9216"
     networks:
       - grainjs_network
-    # depends_on: # Добавим зависимость от mongo1, если он определен в другом месте или это плейсхолдер
-      # - mongo1 # Замените на имя вашего сервиса MongoDB, если оно другое
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "14268:14268"  # Jaeger gRPC agent port (для OTLP gRPC от коллектора)
-      - "14250:14250"  # Jaeger HTTP agent port (для OTLP HTTP от коллектора)
-      - "9411:9411"    # Zipkin endpoint (опционально)
-      - "6831:6831/udp" # Jaeger agent UDP Thrift port (для старых агентов/SDK)
-      - "6832:6832/udp" # Jaeger agent UDP Thrift compact port
-    environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
-      - COLLECTOR_OTLP_ENABLED=true # Явно включаем OTLP ресивер в Jaeger (хотя часто включен по умолчанию)
-    networks:
-      - grainjs_network
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest # Используем contrib для большего числа компонентов
-    container_name: otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    ports:
-      - "4317:4317" # OTLP gRPC receiver
-      - "4318:4318" # OTLP HTTP receiver
-      - "8889:8889" # Prometheus exporter endpoint
-    depends_on:
-      - jaeger
-    networks:
-      - grainjs_network
 
 volumes:
-  mongo-data:
   prometheus_data:
   grafana_data:
+  tempo_data:
 
 networks:
   grainjs_network:

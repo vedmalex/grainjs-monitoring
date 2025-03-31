@@ -1,0 +1,55 @@
+server:
+  http_listen_port: 3200 # Порт для UI запросов (например, из Grafana)
+
+distributor:
+  receivers: # Конфигурация приема данных
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+ingester:
+  trace_idle_period: 10s # Как долго ждать спаны для одного трейса
+  max_block_bytes: 1000000 # Макс. размер блока перед записью
+  max_block_duration: 5m # Макс. время перед записью
+
+compactor:
+  compaction:
+    block_retention: 1h # Как долго хранить сжатые блоки
+
+storage: # Хранение трейсов
+  trace:
+    backend: local # Используем локальную файловую систему
+    local:
+      path: /tmp/tempo/blocks
+
+# Для интеграции с Grafana
+# Раздел search немного изменился, backend: local обычно подразумевается по умолчанию
+# query_frontend:
+#   search:
+#     # backend: local # Это поле удалено или изменено
+
+metrics_generator: # Включаем генератор метрик из спанов (опционально)
+  registry:
+    external_labels:
+      source: tempo
+      cluster: docker-compose
+  storage:
+    path: /tmp/tempo/generator/wal
+  processor:
+    service_graphs:
+      wait: 10s
+    span_metrics: # Включаем метрики из спанов (service graphs)
+      dimensions:
+        - service.name
+        - operation
+        - span.kind
+      # latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 100ms, 1s] # Поле изменено или удалено
+      # dimensions_cache_size: 100000 # Поле удалено
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]

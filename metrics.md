@@ -14,7 +14,8 @@ conn_type
 | 2583     | MongoDB                               | https://grafana.com/grafana/dashboards/2583-mongodb/                                |
 | 1860     | Node Exporter Full                    | https://grafana.com/grafana/dashboards/1860-node-exporter-full/                     |
 | 11159    | NodeJS Application Dashboard          | https://grafana.com/grafana/dashboards/11159-nodejs-application-dashboard/          |
-|          |                                       |                                                                                     |
+| 10001    | Jaeger                                | https://grafana.com/grafana/dashboards/10001-jaeger/                                |
 
 
+Jaeger
 https://raw.githubusercontent.com/percona/grafana-dashboards/refs/heads/main/dashboards/MongoDB/MongoDB_InMemory_Details.json
