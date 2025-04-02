@@ -1,8 +1,8 @@
 server:
-  http_listen_port: 3200 # Порт для UI запросов (например, из Grafana)
+  http_listen_port: 3200 # Port for UI requests (e.g., from Grafana)
 
 distributor:
-  receivers: # Конфигурация приема данных
+  receivers: # Data reception configuration
     otlp:
       protocols:
         http:
@@ -11,27 +11,28 @@ distributor:
           endpoint: 0.0.0.0:4317
 
 ingester:
-  trace_idle_period: 10s # Как долго ждать спаны для одного трейса
-  max_block_bytes: 1000000 # Макс. размер блока перед записью
-  max_block_duration: 5m # Макс. время перед записью
+  trace_idle_period: 300s    # Time to wait for spans before flushing (reduced from default 10s)
+  max_block_bytes: 100000    # Maximum block size before flush (reduced from 1000000 for more frequent writes)
+  max_block_duration: 5m     # Maximum time to keep block in memory before flushing
+  flush_check_period: 1s     # How often to check if blocks need to be flushed
 
 compactor:
   compaction:
-    block_retention: 1h # Как долго хранить сжатые блоки
+    block_retention: 48h # How long to retain compacted blocks in storage (48 hours) can be reduced to 24h or 72h
 
-storage: # Хранение трейсов
+storage: # Trace storage configuration
   trace:
-    backend: local # Используем локальную файловую систему
+    backend: local # Using local filesystem for storage
     local:
       path: /tmp/tempo/blocks
 
-# Для интеграции с Grafana
-# Раздел search немного изменился, backend: local обычно подразумевается по умолчанию
+# Grafana integration settings
+# Note: search section has been updated, 'backend: local' is now typically implied by default
 # query_frontend:
 #   search:
-#     # backend: local # Это поле удалено или изменено
+#     # backend: local # This field has been deprecated or changed
 
-metrics_generator: # Включаем генератор метрик из спанов (опционально)
+metrics_generator: # Optional span-to-metrics generator configuration
   registry:
     external_labels:
       source: tempo
@@ -40,16 +41,20 @@ metrics_generator: # Включаем генератор метрик из сп�
     path: /tmp/tempo/generator/wal
   processor:
     service_graphs:
-      wait: 10s
-    span_metrics: # Включаем метрики из спанов (service graphs)
+      wait: 10s  # Wait time for service graph generation
+    span_metrics: # Service graph metrics configuration
       dimensions:
         - service.name
         - operation
         - span.kind
-      # latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 100ms, 1s] # Поле изменено или удалено
-      # dimensions_cache_size: 100000 # Поле удалено
+      # Values in seconds: 0.001 = 1ms, 0.002 = 2ms, etc.
+      histogram_buckets: [0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.0]
+      # Following fields have been deprecated or removed:
+      # latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 100ms, 1s]
+      # dimensions_cache_size: 100000
 
 overrides:
-  defaults:
-    metrics_generator:
-      processors: [service-graphs, span-metrics]
+  metrics_generator_processors: [service-graphs, span-metrics]
+  ingestion_rate_strategy: local
+  ingestion_rate_limit_bytes: 100000   # Limit for incoming data rate
+  ingestion_burst_size_bytes: 200000   # Maximum burst size for incoming data
