@@ -18,7 +18,7 @@ ingester:
 
 compactor:
   compaction:
-    block_retention: 48h # How long to retain compacted blocks in storage (48 hours) can be reduced to 24h or 72h
+    block_retention: 72h # How long to retain compacted blocks in storage (72 hours) it can be reduced to 48h/24h
 
 storage: # Trace storage configuration
   trace:
